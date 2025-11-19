@@ -4,7 +4,7 @@ By Vincent Wilkinson Jr.
 
 Overview
 
-This project is my beginner-friendly attempt at understanding how sportsbook VIP teams and player-experience roles track player activity and engagement.
+This project is my attempt at understanding how sportsbook VIP teams and player-experience roles track player activity and engagement.
 
 I created a simple sample dataset with 20 players and used basic SQL thinking and common-sense pattern reading to spot:
 
@@ -132,7 +132,7 @@ event invitations
 
 personalized touchpoints
 
-Player Segmentation (Matches the 20 Users)
+Player Segmentation 
 Healthy Players
 
 Active in logins and bets
@@ -165,43 +165,65 @@ This is based on behavior, not complicated formulas.
 
 SQL Examples 
 
-These queries match EXACT column names and datasets EXACTLY.
+These queries match exact column names and datasets exactly.
 
-1. Find players who deposited but didn’t bet
-SELECT d.player_id
-FROM deposits d
-LEFT JOIN bets b ON d.player_id = b.player_id
-WHERE b.player_id IS NULL;
-
-2. Find total net loss (stake - payout)
-SELECT player_id,
-       SUM(stake) AS total_staked,
-       SUM(payout) AS total_payout,
-       SUM(stake - payout) AS net_loss
-FROM bets
-GROUP BY player_id
-ORDER BY net_loss DESC;
-
-3. Check login activity
-SELECT player_id,
-       COUNT(*) AS login_count
-FROM logins
-GROUP BY player_id
-ORDER BY login_count DESC;
-
-4. Simple engagement score 
-SELECT 
-    p.player_id,
-    COUNT(DISTINCT d.deposit_id) AS deposits,
-    COUNT(DISTINCT b.bet_id) AS bets,
-    COUNT(DISTINCT l.login_id) AS logins,
-    (COUNT(d.deposit_id)*0.3 + COUNT(b.bet_id)*0.5 + COUNT(l.login_id)*0.2) AS engagement_score
+1. Basic activity summary
+SELECT
+  p.player_id,
+  COUNT(DISTINCT d.deposit_id) AS deposit_count,
+  COUNT(DISTINCT b.bet_id)     AS bet_count,
+  COUNT(DISTINCT l.login_id)   AS login_count
 FROM players p
 LEFT JOIN deposits d ON p.player_id = d.player_id
-LEFT JOIN bets b ON p.player_id = b.player_id
-LEFT JOIN logins l ON p.player_id = l.player_id
+LEFT JOIN bets b      ON p.player_id = b.player_id
+LEFT JOIN logins l    ON p.player_id = l.player_id
+GROUP BY p.player_id;
+
+
+2. Players who deposited multiple times but only placed one bet
+SELECT
+  p.player_id,
+  COUNT(DISTINCT d.deposit_id) AS deposit_count,
+  COUNT(DISTINCT b.bet_id)     AS bet_count,
+  COUNT(DISTINCT l.login_id)   AS login_count
+FROM players p
+LEFT JOIN deposits d ON p.player_id = d.player_id
+LEFT JOIN bets b      ON p.player_id = b.player_id
+LEFT JOIN logins l    ON p.player_id = l.player_id
 GROUP BY p.player_id
-ORDER BY engagement_score DESC;
+HAVING deposit_count >= 2
+   AND bet_count = 1;
+
+(This highlighted players 19 and 20.)
+
+3. Players who look consistently engaged
+SELECT
+  p.player_id,
+  COUNT(DISTINCT d.deposit_id) AS deposit_count,
+  COUNT(DISTINCT b.bet_id)     AS bet_count,
+  COUNT(DISTINCT l.login_id)   AS login_count
+FROM players p
+LEFT JOIN deposits d ON p.player_id = d.player_id
+LEFT JOIN bets b      ON p.player_id = b.player_id
+LEFT JOIN logins l    ON p.player_id = l.player_id
+GROUP BY p.player_id
+HAVING bet_count >= 2
+   AND login_count >= 2
+   AND deposit_count >= 1;
+
+players 1, 2, 4
+
+4. Total staked amount (early VIP signal)
+SELECT
+  p.player_id,
+  p.vip_tier,
+  SUM(b.stake) AS total_staked
+FROM players p
+JOIN bets b ON p.player_id = b.player_id
+GROUP BY p.player_id, p.vip_tier
+ORDER BY total_staked DESC;
+
+(This highlighted players 6 and 15.)
 
 What I Learned
 
